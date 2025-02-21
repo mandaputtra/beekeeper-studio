@@ -1,4 +1,26 @@
 .export-modal {
+  form {
+    overflow-y: auto;
+    height: 100%;
+    max-height: 80vh;
+    padding: 1.2rem;
+  }
+
+  .dialog-content {
+    padding: 0;
+  }
+
+  .dialog-c-title {
+    .dialog-c-link {
+        margin-left: $gutter-w;
+        font-size: 0.8rem;
+        color:$theme-primary;
+        text-decoration: underline;
+        &:hover {
+
+        }
+      }
+  }
   .dialog-c-subtitle {
     .material-icons {
       margin-top: -1rem;
@@ -30,6 +52,11 @@
   }
   .format select {
     width: 120px;
+  }
+
+  .vue-dialog-buttons {
+    margin-top: $gutter-h * 4;
+    padding: 0;
   }
 }
 .export-form {

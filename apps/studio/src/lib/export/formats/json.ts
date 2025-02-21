@@ -1,5 +1,5 @@
+import { BasicDatabaseClient } from "@/lib/db/clients/BasicDatabaseClient";
 import { Export } from "@/lib/export";
-import { DBConnection } from '@/lib/db/client'
 import indentString from 'indent-string'
 import { TableFilter, TableOrView } from "../../db/models";
 import { ExportOptions } from "../models";
@@ -16,15 +16,16 @@ export class JsonExporter extends Export {
 
   constructor(
     filePath: string,
-    connection: DBConnection,
+    connection: BasicDatabaseClient<any>,
     table: TableOrView,
     query: string,
     queryName: string,
     filters: TableFilter[] | any[],
     options: ExportOptions,
-    outputOptions: OutputOptionsJson
+    outputOptions: OutputOptionsJson,
+    managerNotify: boolean = true
   ) {
-    super(filePath, connection, table, query, queryName, filters, options)
+    super(filePath, connection, table, query, queryName, filters, options, managerNotify)
     this.outputOptions = outputOptions
   }
 

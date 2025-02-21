@@ -3,9 +3,9 @@ import PoolConnection from "mysql2/typings/mysql/lib/PoolConnection";
 import Query from "mysql2/typings/mysql/lib/protocol/sequences/Query";
 import { BeeCursor } from "../../models";
 import { waitFor } from "../base/wait";
-import rawLog from 'electron-log'
+import rawLog from '@bksLogger'
 
-const log = rawLog.scope('msqlcursor');
+const log = rawLog.scope('mysqlcursor');
 
 interface Conn {
   pool: Pool

@@ -4,13 +4,54 @@ volumes:
   mssqllatin:
   mysql:
   mysql8:
+  mysql4.1:
   psql96:
   psql13:
   mariadb:
   cockroachdb:
+  oracle18:
+  cassandra:
   bigquery:
+  firebird:
+  mongodb:
 
 services:
+
+  mongodb:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: beekeeper
+      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_DATABASE: sakila
+    volumes:
+      - ./dev/docker_mongodb_init:/docker-entrypoint-initdb.d
+    ports:
+      - 27017:27017
+
+  oracle18:
+    image: gvenzl/oracle-xe:18
+    environment:
+      ORACLE_PASSWORD: example
+      ORACLE_DATABASE: sakila
+      APP_USER: beekeeper
+      APP_USER_PASSWORD: example
+    volumes:
+      - oracle18:/opt/oracle/oradata
+      - ./dev/docker_oracle_init:/docker-entrypoint-initdb.d
+    ports:
+      - 1521:1521
+
+  psql15:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: saklia
+    volumes:
+      - psql13:/var/lib/postgresql/data
+      - ./dev/docker_psql_init:/docker-entrypoint-initdb.d
+    ports:
+      - 5434:5432
 
   psql13:
     image: postgres:13
@@ -36,7 +77,7 @@ services:
       - 5432:5432
   mariadb:
     image: mariadb
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: example
       MYSQL_DATABASE: test
@@ -48,7 +89,7 @@ services:
   mysql8:
     image: mysql:8.0.21
     command: --default-authentication-plugin=mysql_native_password
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: example
       MYSQL_DATABASE: test
@@ -60,7 +101,7 @@ services:
   mysql:
     image: mysql:5.7.22
     command: --default-authentication-plugin=mysql_native_password
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: example
       MYSQL_DATABASE: test
@@ -69,12 +110,17 @@ services:
     volumes:
       - mysql:/var/lib/mysql
       - ./dev/docker_mysql_init:/docker-entrypoint-initdb.d
+  mysql4.1:
+    image: vettadock/mysql-old:4.1
+    restart: unless-stopped
+    ports:
+      - 3309:3306
   sqlserver:
     image: "mcr.microsoft.com/mssql/server:2017-latest-ubuntu"
     volumes:
       - mssql:/var/opt/mssql/data
       - ./dev/docker_sqlserver:/docker_init
-    restart: always
+    restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
       MSSSQL_PID: "Express"
@@ -102,6 +148,18 @@ services:
     ports:
       - 26257:26257
     command: start-single-node --insecure
+  cassandra:
+    image: cassandra:latest
+    entrypoint: ["/docker-entrypoint.initdb.d/entry.sh"]
+    ports:
+      - 9042:9042
+    volumes:
+      - cassandra:/var/lib/cassandra
+      - ./dev/docker_cassandra_init:/docker-entrypoint.initdb.d
+# use keyspace; describe tables; # get all the tables for a specific keyspace
+# select * from system_schema.keyspaces; # gets all keyspaces
+# https://www.folkstalk.com/2022/09/get-all-keyspaces-in-cassandra-with-code-examples.html
+# Create keyspace https://www.tutorialspoint.com/cassandra/cassandra_create_keyspace.htm
   bigquery:
     image: ghcr.io/goccy/bigquery-emulator:latest
     volumes:
@@ -111,3 +169,31 @@ services:
       - 9050:9050
       - 9060:9060
     entrypoint: sh -c 'chmod +x /docker_init/data.sh; /docker_init/data.sh'
+  firebird:
+    image: jacobalberty/firebird:v4.0.1
+    volumes:
+      - ./dev/docker_firebird:/docker_init
+    ports:
+      - 3050:3050
+    environment:
+      - ISC_PASSWORD=masterkey
+      - EnableLegacyClientAuth=true
+    command: sh -c 'chmod +x /docker_init/entrypoint.sh; /docker_init/entrypoint.sh & /usr/local/firebird/docker-entrypoint.sh firebird;'
+  libsql:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    platform: linux/amd64
+    ports:
+      - 8081:8080
+      - 5001:5001
+      # environment:
+    #   - SQLD_NODE=primary
+    # volumes:
+    #   - ./dev/docker_libsql:/var/lib/sqld
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    ports:
+      - 8123:8123
+    environment:
+      - CLICKHOUSE_USER=username
+      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1

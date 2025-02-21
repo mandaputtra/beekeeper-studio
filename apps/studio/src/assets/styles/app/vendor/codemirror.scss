@@ -1,4 +1,3 @@
-@import '../extends';
 
 .CodeMirror {
   font-family: $font-family-mono, monospace;
@@ -6,7 +5,7 @@
   color: $text-dark!important;
   padding: 0.75rem 0;
   z-index: 1;
-  height: 100%!important;
+  height: 100%;
 }
 .CodeMirror-code {
   line-height: 1.3!important;
@@ -14,6 +13,10 @@
 .CodeMirror-gutters {
   border: 0!important;
   background: $query-editor-bg!important;
+}
+.CodeMirror-foldmarker {
+  color: $brand-primary;
+  text-shadow: none;
 }
 
 // Monokai
@@ -52,7 +55,7 @@
   padding: $gutter-h 0;
   border: 0;
   border-radius: 6px;
-  @extend .card-shadow;
+  @include card-shadow;
   li {
     &:hover {
       background: rgba($theme-base, 0.05);
@@ -68,4 +71,7 @@
   border-radius: 0;
   color: $text-dark;
   cursor: pointer;
+}
+.CodeMirror-scrollbar-filler {
+  background-color: transparent;
 }

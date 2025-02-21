@@ -1,3 +1,11 @@
+@import "codemirror/lib/codemirror";
+@import "codemirror/addon/hint/show-hint";
+@import "noty/lib/noty";
+@import "tabulator-tables/dist/css/tabulator_midnight";
+@import "codemirror/theme/monokai";
+@import "codemirror/addon/merge/merge";
+@import "codemirror/addon/search/matchesonscrollbar";
+@import "vue-select/dist/vue-select";
 
 @import './app/normalize';
 @import './app/variables';
@@ -7,9 +15,8 @@
 
 body.theme-system {
   @media (prefers-color-scheme: dark) {
-    @import './components/content-placeholders.scss';
-    @import './components/context-menu.scss';
-    @import './components/quicksearch.scss';
+    @import './app/mixins';
+    @import './components/all';
     @import './vendor.scss';
     @import './app/_all.scss';
     @import './themes/dark/theme.scss';
@@ -17,9 +24,8 @@ body.theme-system {
 
   @media (prefers-color-scheme: light) {
     @import './themes/light/variables.scss';
-    @import './components/content-placeholders.scss';
-    @import './components/context-menu.scss';
-    @import './components/quicksearch.scss';
+    @import './app/mixins';
+    @import './components/all';
     @import './vendor.scss';
     @import './app/_all.scss';
     @import './themes/light/theme.scss';
@@ -27,9 +33,8 @@ body.theme-system {
 }
 
 body.theme-dark {
-  @import './components/content-placeholders.scss';
-  @import './components/context-menu.scss';
-  @import './components/quicksearch.scss';
+  @import './app/mixins';
+  @import './components/all';
   @import './vendor.scss';
   @import './app/_all.scss';
   @import './themes/dark/theme.scss';
@@ -37,11 +42,29 @@ body.theme-dark {
 
 body.theme-light {
   @import './themes/light/variables.scss';
-  @import './components/content-placeholders.scss';
-  @import './components/context-menu.scss';
-  @import './components/quicksearch.scss';
+  @import './app/mixins';
+  @import './components/all';
   @import './vendor.scss';
   @import './app/_all.scss';
   @import './themes/light/theme.scss';
 }
 
+body.theme-solarized-dark {
+  @import './themes/solarized-dark/variables.scss';
+  @import './app/mixins';
+  @import './components/all';
+  @import './vendor.scss';
+  @import './app/_all.scss';
+  @import './themes/solarized-dark/theme.scss';
+}
+
+
+
+body.theme-solarized {
+  @import './themes/solarized-light/variables.scss';
+  @import './app/mixins';
+  @import './components/all';
+  @import './vendor.scss';
+  @import './app/_all.scss';
+  @import './themes/solarized-light/theme.scss';
+}

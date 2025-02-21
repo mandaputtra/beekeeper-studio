@@ -1,22 +1,16 @@
 <template>
-  <div
-    class="advanced-connection-settings"
-    v-show="!config.socketPathEnabled"
+  <toggle-form-area
+    title="SSH Tunnel"
+    hide-toggle="true"
+    :expanded="config.sshEnabled"
   >
-    <h4
-      class="advanced-heading flex"
-      :class="{enabled: config.sshEnabled}"
-    >
-      <span class="expand">SSH Tunnel</span>
+    <template v-slot:header>
       <x-switch
         @click.prevent="config.sshEnabled = !config.sshEnabled"
         :toggled="config.sshEnabled"
       />
-    </h4>
-    <div
-      class="advanced-body"
-      v-show="config.sshEnabled"
-    >
+    </template>
+    <template>
       <div class="row gutter">
         <div class="alert alert-info">
           <i class="material-icons-outlined">info</i>
@@ -54,7 +48,7 @@
             Keepalive Interval <i
               class="material-icons"
               style="padding-left: 0.25rem"
-              v-tooltip="'Ping the server after this many seconds when idle <br /> to prevent getting disconnected due to inactiviy <br/> (like<code> ServerAliveInterval 60 </code>in ssh/config)'"
+              v-tooltip="{ content: 'Ping the server after this many seconds when idle <br /> to prevent getting disconnected due to inactiviy <br/> (like<code> ServerAliveInterval 60 </code>in ssh/config)', html: true}"
             >help_outlined</i>
           </label>
           <input
@@ -201,21 +195,21 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </toggle-form-area>
 </template>
 <script>
-  import FilePicker from '@/components/common/form/FilePicker'
-  import ExternalLink from '@/components/common/ExternalLink'
+import FilePicker from '@/components/common/form/FilePicker.vue'
+import ExternalLink from '@/components/common/ExternalLink.vue'
 
-  import { join as pathJoin } from 'path'
-import platformInfo from '@/common/platform_info'
+import ToggleFormArea from '../common/ToggleFormArea.vue'
 
   export default {
     props: ['config'],
     components: {
-      FilePicker, ExternalLink
-    },
+    FilePicker, ExternalLink,
+    ToggleFormArea
+},
     data() {
       return {
         enableSshLink: "https://docs.beekeeperstudio.io/pages/linux#ssh-key-access-for-the-snap",
@@ -224,7 +218,7 @@ import platformInfo from '@/common/platform_info'
           { label: "Username & Password", mode: "userpass" },
           { label: "SSH Agent", mode: "agent" }
         ],
-        filePickerDefaultPath: pathJoin(platformInfo.homeDirectory, '.ssh')
+        filePickerDefaultPath: window.main.join(platformInfo.homeDirectory, '.ssh')
       }
     },
     methods: {

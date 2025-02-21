@@ -105,7 +105,7 @@
           }
         }
         > span {
-          @extend .truncate;
+          @include truncate;
           margin: 0 0.2rem;
         }
       }
@@ -142,5 +142,9 @@
   }
   .quick-connect {
     padding: $gutter-w;
+  }
+
+  .filter {
+    padding: 0 $gutter-w;
   }
 }

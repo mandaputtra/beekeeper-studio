@@ -1,7 +1,8 @@
 // "forked" from CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: https://codemirror.net/5/LICENSE
 
-import { Pos, testCompletions as test } from "./helpers";
+import { Pos } from "codemirror";
+import { testCompletions as test } from "./helpers";
 
 const simpleTables = {
   users: ["name", "score", "birthDate"],
@@ -11,6 +12,12 @@ const simpleTables = {
 const schemaTables = {
   "schema.users": ["name", "score", "birthDate"],
   "schema.countries": ["name", "population", "size"],
+};
+
+const uppercaseSchemaTables = {
+  "USERS": ["NAME", "SCORE", "BIRTHDATE"],
+  "SCHEMA.USERS": ["NAME", "SCORE", "BIRTHDATE"],
+  "SCHEMA.COUNTRIES": ["NAME", "POPULATION", "SIZE"],
 };
 
 const displayTextTables = [
@@ -220,6 +227,37 @@ describe("CodeMirror completions", () => {
     from: Pos(0, 7),
     to: Pos(0, 24),
     mode: "text/x-pgsql",
+  });
+
+  test("lowercase to uppercase schema", {
+    value: "SELECT sch",
+    cursor: Pos(0, 12),
+    tables: uppercaseSchemaTables,
+    list: [
+      { text: "SCHEMA.USERS", className: "CodeMirror-hint-table" },
+      { text: "SCHEMA.COUNTRIES", className: "CodeMirror-hint-table" },
+      { text: "SCHEMA", className: "CodeMirror-hint-keyword" },
+      { text: "SCHEMA_NAME", className: "CodeMirror-hint-keyword" },
+      { text: "SCHEMAS", className: "CodeMirror-hint-keyword" },
+      { text: "SCHEDULE", className: "CodeMirror-hint-keyword" },
+    ],
+    from: Pos(0, 7),
+    to: Pos(0, 10),
+  });
+
+  test("lowercase to uppercase table", {
+    value: "SELECT user",
+    cursor: Pos(0, 12),
+    tables: uppercaseSchemaTables,
+    list: [
+      { text: "USERS", className: "CodeMirror-hint-table" },
+      { text: "USER", className: "CodeMirror-hint-keyword" },
+      { text: "USER_RESOURCES", className: "CodeMirror-hint-keyword" },
+      { text: "USER_STATISTICS", className: "CodeMirror-hint-keyword" },
+
+    ],
+    from: Pos(0, 7),
+    to: Pos(0, 11),
   });
 
   test("displayText_default_table", {

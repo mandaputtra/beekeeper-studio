@@ -1,5 +1,5 @@
 <template>
-  <div 
+  <div
     class="list-item"
     :title="title"
     @contextmenu.stop.prevent="showContextMenu"
@@ -14,7 +14,7 @@
       <span :class="`connection-label connection-label-color-${labelColor}`" />
       <div class="connection-title flex-col expand">
         <div class="title">{{ label }}</div>
-        <div class="subtitle"> 
+        <div class="subtitle">
           <span
             class="bastion"
             v-if="this.config.sshBastionHost"
@@ -66,10 +66,11 @@
   </div>
 </template>
 <script>
-import path from 'path'
 import _ from 'lodash'
 import TimeAgo from 'javascript-time-ago'
 import { mapGetters, mapState } from 'vuex'
+import { isUltimateType } from '@/common/interfaces/IConnection'
+
 export default {
   // recent list is 'recent connections'
   // if that is true, we need to find the companion saved connection
@@ -105,14 +106,14 @@ export default {
     label() {
       if (this.savedConnection) {
         return this.savedConnection.name
-      } else if (this.config.connectionType === 'sqlite') {
-        return path.basename(this.config.defaultDatabase)
+      } else if (this.config.connectionType === 'sqlite' || this.config.connectionType === 'libsql') {
+        return window.main.basename(this.config.defaultDatabase)
       }
 
       return this.$bks.simpleConnectionString(this.config)
     },
     connectionType() {
-      if (this.config.connectionType === 'sqlite') {
+      if (this.config.connectionType === 'sqlite' || this.config.connectionType === 'libsql') {
         return 'path'
       }
 
@@ -133,7 +134,7 @@ export default {
       if (this.isRecentList) {
         if (!this.config.connectionId || !this.config.workspaceId) return null
 
-        return this.connectionConfigs.find((c) => 
+        return this.connectionConfigs.find((c) =>
           c.id === this.config.connectionId &&
           c.workspaceId === this.config.workspaceId
         )
@@ -144,13 +145,17 @@ export default {
   },
   methods: {
     showContextMenu(event) {
+      const ultimateCheck = this.$store.getters.isUltimate
+        ? true
+        : !isUltimateType(this.config.connectionType)
+
       const options = [
         {
           name: "View",
           slug: 'view',
           handler: (blob) => this.click(blob.item)
         },
-        {
+        ultimateCheck && {
           name: 'Connect',
           slug: 'connect',
           handler: (blob) => this.doubleClick(blob.item)
@@ -168,7 +173,7 @@ export default {
           name: "Remove",
           handler: this.remove
         },
-      ]
+      ].filter(v => v)
 
       if (this.isCloud) {
         options.push(...[
@@ -178,7 +183,6 @@ export default {
           ...this.moveToOptions
         ])
       }
-      console.log('options', options)
 
       this.$bks.openMenu({
         event,

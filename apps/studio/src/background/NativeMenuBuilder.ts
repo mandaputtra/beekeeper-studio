@@ -3,7 +3,8 @@ import NativeMenuActionHandlers from './NativeMenuActionHandlers'
 import { ipcMain, BrowserWindow } from 'electron'
 import {AppEvent} from '../common/AppEvent'
 import { IGroupedUserSettings } from '../common/appdb/models/user_setting'
-import rawLog from 'electron-log'
+import rawLog from '@bksLogger'
+import platformInfo from '@/common/platform_info'
 
 const log = rawLog.scope('NativeMenuBuilder')
 
@@ -14,15 +15,15 @@ export default class NativeMenuBuilder {
 
   constructor(private electron: any, settings: IGroupedUserSettings){
     this.handler = new NativeMenuActionHandlers(settings)
-    if (!settings.menuStyle || settings.menuStyle.value === 'native') {
-      this.builder = new MenuBuilder(settings, this.handler)
+    // We only support native titlebars for Mac now
+    if (platformInfo.isMac) {
+      this.builder = new MenuBuilder(settings, this.handler, platformInfo)
     }
   }
 
   initialize(): void {
     if (this.builder) {
       const template = this.builder.buildTemplate()
-      log.info("MENUTEMPLATE", template)
       this.menu = this.electron.Menu.buildFromTemplate(template)
       this.electron.Menu.setApplicationMenu(this.menu)
     } else {
@@ -35,9 +36,10 @@ export default class NativeMenuBuilder {
     ipcMain.on(AppEvent.menuClick, (event, actionName: keyof NativeMenuActionHandlers, arg) => {
       try {
         const window = BrowserWindow.fromWebContents(event.sender)
+        log.debug("Received Menu Click, event", actionName, arg, window)
         if (window) {
           const func = this.handler[actionName].bind(this.handler)
-          func(arg || null, window)
+          func(arg ?? null, window)
         }
       } catch (e) {
         console.error(`Couldn't trigger action ${actionName}(${arg || ""}), ${e.message}`)

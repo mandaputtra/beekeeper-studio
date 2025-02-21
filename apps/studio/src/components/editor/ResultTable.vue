@@ -3,34 +3,41 @@
     class="result-table"
     v-hotkey="keymap"
   >
-    <div ref="tabulator" />
+    <div
+      ref="tabulator"
+      class="spreadsheet-table"
+    />
   </div>
 </template>
 
 <script type="text/javascript">
-  import { Tabulator, TabulatorFull} from 'tabulator-tables'
   import _ from 'lodash'
   import dateFormat from 'dateformat'
   import Converter from '../../mixins/data_converter'
-  import Mutators, { escapeHtml } from '../../mixins/data_mutators'
+  import Mutators from '../../mixins/data_mutators'
+  import { escapeHtml } from '@shared/lib/tabulator'
   import { dialectFor } from '@shared/lib/dialects/models'
+  import { FkLinkMixin } from '@/mixins/fk_click'
+  import MagicColumnBuilder from '@/lib/magic/MagicColumnBuilder'
   import globals from '@/common/globals'
   import Papa from 'papaparse'
-  import { mapState } from 'vuex'
+  import { mapState, mapGetters } from 'vuex'
   import { markdownTable } from 'markdown-table'
-  import * as intervalParse from 'postgres-interval'
+  import intervalParse from 'postgres-interval'
   import * as td from 'tinyduration'
-  import { copyRange, copyActionsMenu, commonColumnMenu } from '@/lib/menu/tableMenu';
+  import { copyRanges, copyActionsMenu, commonColumnMenu, resizeAllColumnsToFitContent, resizeAllColumnsToFixedWidth } from '@/lib/menu/tableMenu';
+  import { rowHeaderField } from '@/common/utils'
+  import { tabulatorForTableData } from '@/common/tabulator';
 
   export default {
-    mixins: [Converter, Mutators],
+    mixins: [Converter, Mutators, FkLinkMixin],
     data() {
       return {
         tabulator: null,
         actualTableHeight: '100%',
       }
     },
-    props: ['result', 'tableHeight', 'query', 'active'],
+    props: ['result', 'tableHeight', 'query', 'active', 'tab', 'focus'],
     watch: {
       active() {
         if (!this.tabulator) return;
@@ -43,22 +50,23 @@
           this.tabulator.blockRedraw()
         }
       },
-      tableData: {
-        handler() {
-          this.tabulator.replaceData(this.tableData)
-        }
-      },
-      tableColumns: {
-        handler() {
-          this.tabulator.setColumns(this.tableColumns)
-        }
+      result() {
+        // This is better than just setting data because
+        // the whole dataset has changed.
+        this.initializeTabulator()
       },
       tableHeight() {
         this.tabulator.setHeight(this.actualTableHeight)
-      }
+      },
+      focus() {
+        if (!this.focus) return
+        this.triggerFocus()
+        this.scrollToRangeIfOutOfView()
+      },
     },
     computed: {
-      ...mapState(['connection']),
+      ...mapState(['usedConfig', 'defaultSchema', 'connectionType', 'connection']),
+      ...mapGetters(['isUltimate']),
       keymap() {
         const result = {}
         result[this.ctrlOrCmd('c')] = this.copySelection.bind(this)
@@ -73,50 +81,83 @@
       tableColumns() {
         const columnWidth = this.result.fields.length > 30 ? globals.bigTableColumnWidth : undefined
 
-        const cellMenu = (_, cell) => {
+        const cellMenu = (_e, cell) => {
           return copyActionsMenu({
-            range: cell.getRange(),
-            connection: this.connection,
-            table: 'mytable',
-            schema: this.connection.defaultSchema(),
+            ranges: cell.getRanges(),
+            table: this.result.tableName,
+            schema: this.defaultSchema,
           })
         }
 
-        const columnMenu = (_, column) => {
+        const columnMenu = (_e, column) => {
           return [
             ...copyActionsMenu({
-              range: column.getRange(),
-              connection: this.connection,
+              ranges: column.getRanges(),
               table: 'mytable',
-              schema: this.connection.defaultSchema(),
+              schema: this.defaultSchema,
             }),
             { separator: true },
             ...commonColumnMenu,
           ]
         }
 
-        return this.result.fields.map((column, index) => {
-          const title = column.name || `Result ${index}`
+        const columns = this.result.fields.flatMap((column, index) => {
+          const results = []
+          const magic = MagicColumnBuilder.build(column.name) || {}
+          const title = magic?.title ?? column.name ?? `Result ${index}`
+
+          let cssClass = 'hide-header-menu-icon'
+
+          if (magic.cssClass) {
+            cssClass += ` ${magic.cssClass}`
+          }
+
+          if (magic.formatterParams?.fk) {
+            magic.formatterParams.fkOnClick = (_e, cell) => this.fkClick(magic.formatterParams.fk[0], cell)
+          }
+
+          const magicStuff = _.pick(magic, ['formatter', 'formatterParams'])
+          const defaults = {
+            formatter: this.cellFormatter,
+          }
+
           const result = {
-            title: `<span class="title">${escapeHtml(title)}</span>`,
+            ...defaults,
+            title,
+            titleFormatter() {
+              return `<span class="title">${escapeHtml(title)}</span>`
+            },
             field: column.id,
             titleDownload: escapeHtml(column.name),
             dataType: column.dataType,
             width: columnWidth,
-            mutator: this.resolveTabulatorMutator(column.dataType, dialectFor(this.connection.connectionType)),
+            mutator: this.resolveTabulatorMutator(column.dataType, dialectFor(this.connectionType)),
             formatter: this.cellFormatter,
             maxInitialWidth: globals.maxColumnWidth,
             tooltip: this.cellTooltip,
             contextMenu: cellMenu,
             headerContextMenu: columnMenu,
             headerMenu: columnMenu,
+            resizable: 'header',
+            cssClass,
+            ...magicStuff
           }
+
           if (column.dataType === 'INTERVAL') {
             // add interval sorter
             result['sorter'] = this.intervalSorter;
           }
-          return result;
+
+          results.push(result)
+
+          if (magic && magic.tableLink) {
+            const fkCol = this.fkColumn(result, [magic.tableLink])
+            results.push(fkCol)
+          }
+          return results;
         })
+
+        return columns
       },
       columnIdTitleMap() {
         const result = {}
@@ -124,7 +165,17 @@
           result[column.field] = column.title
         })
         return result
-      }
+      },
+      tableId() {
+        // the id for a tabulator table
+        if (!this.usedConfig.id) return null;
+
+        const workspace = 'workspace-' + this.worskpaceId
+        const connection = 'connection-' + this.usedConfig.id
+        const table = 'table-' + this.result.tableName
+        const columns = 'columns-' + this.result.fields.reduce((str, field) => `${str},${field.name}`, '')
+        return `${workspace}.${connection}.${table}.${columns}`
+      },
     },
     beforeDestroy() {
       if (this.tabulator) {
@@ -132,33 +183,33 @@
       }
     },
     async mounted() {
-      this.tabulator = new TabulatorFull(this.$refs.tabulator, {
-        spreadsheet: true,
-        data: this.tableData, //link data to table
-        reactiveData: true,
-        renderHorizontal: 'virtual',
-        columns: this.tableColumns, //define table columns
-        height: this.actualTableHeight,
-        nestedFieldSeparator: false,
-        rowHeader: {
-          contextMenu: (_, cell) => {
-            return copyActionsMenu({
-              range: cell.getRange(),
-              connection: this.connection,
-              table: 'mytable',
-              schema: this.connection.defaultSchema(),
-            })
-          }
-        },
-        downloadConfig: {
-          columnHeaders: true
-        },
-      });
+      this.initializeTabulator()
+      if (this.focus) {
+        const onTableBuilt = () => {
+          this.triggerFocus()
+          this.tabulator.off('tableBuilt', onTableBuilt)
+        }
+        this.tabulator.on('tableBuilt', onTableBuilt)
+      }
     },
     methods: {
+      initializeTabulator() {
+        if (this.tabulator) {
+          this.tabulator.destroy()
+        }
+        this.tabulator = tabulatorForTableData(this.$refs.tabulator, {
+          persistenceID: this.tableId,
+          data: this.tableData, //link data to table
+          columns: this.tableColumns, //define table columns
+          height: this.actualTableHeight,
+          downloadConfig: {
+            columnHeaders: true
+          },
+        });
+      },
       copySelection() {
-        if (!document.activeElement.classList.contains('tabulator-tableholder')) return
-        copyRange({ range: this.tabulator.getActiveRange(), type: 'tsv' })
+        if (!this.active || !document.activeElement.classList.contains('tabulator-tableholder')) return
+        copyRanges({ ranges: this.tabulator.getRanges(), type: 'plain' })
       },
       dataToJson(rawData, firstObjectOnly) {
         const rows = _.isArray(rawData) ? rawData : [rawData]
@@ -169,7 +220,7 @@
       },
       download(format) {
         let formatter = format !== 'md' ? format : (rows, options, setFileContents) => {
-          const values = rows.map(row => row.columns.map(col => col.value))
+          const values = rows.map(row => row.columns.map(col => typeof col.value === 'object' ? JSON.stringify(col.value) : col.value))
           setFileContents(markdownTable(values), 'text/markdown')
         };
         // Fix Issue #1493 Lost column names in json query download
@@ -200,7 +251,12 @@
         if (format === 'md') {
           const mdContent = [
             Object.keys(result[0]),
-            ...result.map((row) => Object.values(row)),
+            ...result
+                .map((row) =>
+                  Object.values(row).map(v =>
+                    (typeof v === 'object') ? JSON.stringify(v) : v
+                  )
+                )
           ];
           this.$native.clipboard.writeText(markdownTable(mdContent))
         } else if (format === 'json') {
@@ -225,7 +281,42 @@
         } catch {
           return 0;
         }
-      }
+      },
+      scrollToRangeIfOutOfView() {
+        // FIXME This is a copy of how auto scroll works in tabulator
+        // SelectRange. We need to make the API available from tabulator
+        // instead of copying it here.
+        // e.g. this.tabulator.scrollToRangeIfOutOfView
+        const range = this.tabulator.getRanges().pop()
+        const rangeBounds = range.getBounds()
+        const row = rangeBounds.end.row
+        const column = rangeBounds.end.column
+        const rowRect = row.getElement().getBoundingClientRect();
+        const columnRect = column.getElement().getBoundingClientRect();
+        const rowManagerRect = this.tabulator.rowManager.getElement().getBoundingClientRect();
+        const columnManagerRect = this.tabulator.columnManager.getElement().getBoundingClientRect();
+
+        if(!(rowRect.top >= rowManagerRect.top && rowRect.bottom <= rowManagerRect.bottom)){
+          if(row.getElement().parentNode && column.getElement().parentNode){
+            // Use faster autoScroll when the elements are on the DOM
+            this.tabulator.modules.selectRange.autoScroll(range, row.getElement(), column.getElement());
+          }else{
+            row.getComponent().scrollTo(undefined, false);
+          }
+        }
+
+        if(!(columnRect.left >= columnManagerRect.left + this.rowHeaderWidth && columnRect.right <= columnManagerRect.right)){
+          if(row.getElement().parentNode && column.getElement().parentNode){
+            // Use faster autoScroll when the elements are on the DOM
+            this.tabulator.modules.selectRange.autoScroll(range, row.getElement(), column.getElement());
+          }else{
+            column.getComponent().scrollTo(undefined, false);
+          }
+        }
+      },
+      triggerFocus() {
+        this.tabulator.rowManager.getElement().focus();
+      },
     }
 	}
 </script>
