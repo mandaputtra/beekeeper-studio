@@ -3,21 +3,23 @@ import { TableFilter, TableOrView } from "@/lib/db/models";
 import { Column, Entity } from "typeorm";
 import { ApplicationEntity } from "./application_entity";
 import _ from 'lodash'
+import { TransportOpenTab } from "@/common/transport/TransportOpenTab";
 
 
-type TabType = 'query' | 'table' | 'table-properties' | 'settings' | 'table-builder'
+type TabType = 'query' | 'table' | 'table-properties' | 'settings' | 'table-builder' | 'backup' | 'import-export-database' | 'restore' | 'import-table'
 
-
-const pickable = ['title', 'tabType', 'unsavedChanges', 'unsavedQueryText', 'tableName', 'schemaName']
+const pickable = ['title', 'tabType', 'unsavedChanges', 'unsavedQueryText', 'tableName', 'schemaName', 'entityType', 'titleScope', 'connectionId', 'workspaceId', 'position']
 
 
 @Entity({ name: 'tabs'})
 export class OpenTab extends ApplicationEntity {
-
-
-  constructor(tabType: TabType) {
-    super()
-    this.tabType = tabType
+  withProps(init: TabType | TransportOpenTab): OpenTab {
+    if (_.isString(init)) {
+      this.tabType = init
+      return this;
+    }
+    OpenTab.merge(this, init)
+    return this;
   }
 
   get type(): TabType {
@@ -70,6 +72,7 @@ export class OpenTab extends ApplicationEntity {
 
   @Column({type: 'text', name: 'filters', nullable: true})
   filters?: string
+  isRunning = false;
 
   public setFilters(filters: Nullable<TableFilter[]>) {
     if (filters && _.isArray(filters)) {
@@ -92,8 +95,15 @@ export class OpenTab extends ApplicationEntity {
     }
   }
 
+
+  isBeta(): boolean {
+    const betaTypes = ['backup', 'import-export-database', 'restore', 'import-table'];
+
+    return betaTypes.includes(this.tabType);
+  }
+
   duplicate(): OpenTab {
-    const result = new OpenTab(this.tabType)
+    const result = new OpenTab().withProps(this.tabType);
     _.assign(result, _.pick(this, pickable))
     return result
   }
@@ -113,27 +123,38 @@ export class OpenTab extends ApplicationEntity {
   // we want a loose match here, this is used to determine if we open a new tab or not
   matches(other: OpenTab): boolean {
     // new tabs don't have a workspace set
-    console.log("comparison matches", this.tableName, this.schemaName, this.filters, this.entityType)
     if (other.workspaceId && this.workspaceId && this.workspaceId !== other.workspaceId) {
       return false;
     }
+
     switch (other.tabType) {
       case 'table-properties':
         return this.tableName === other.tableName &&
         (this.schemaName || null) === (other.schemaName || null) &&
-        (this.entityType || null) === (other.entityType || null)
+        (this.entityType || null) === (other.entityType || null) &&
+        (this.tabType || null) === (other.tabType || null)
       case 'table':
-        return false
-        // we just want false for now as filters aren't properly saved.
-        // return this.tableName === other.tableName &&
-        //   (this.schemaName || null) === (other.schemaName || null) &&
-        //   (this.entityType || null) === (other.entityType || null) &&
-        //   _.isEqual(this.filters, other.filters)
+        return this.tableName === other.tableName &&
+          (this.schemaName || null) === (other.schemaName || null) &&
+          (this.entityType || null) === (other.entityType || null)
+      case 'import-export-database':
+        // we store export state in the store, so don't want multiple open
+        // at a time.
+        return this.tabType === 'import-export-database'
       case 'query':
         return this.queryId === other.queryId
+      case 'backup':
+        return this.tabType === 'backup';
+      case 'restore':
+        return this.tabType === 'restore';
+      case 'import-table':
+        return this.tabType === 'import-table' &&
+        this.tableName === other.tableName &&
+        (this.schemaName || null) === (other.schemaName || null);
       default:
         return false
     }
   }
 
 }
+

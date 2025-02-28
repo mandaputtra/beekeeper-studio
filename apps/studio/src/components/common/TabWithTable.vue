@@ -26,15 +26,24 @@
 
 <script lang="ts">
 import Vue from 'vue'
+import rawLog from '@bksLogger'
 import { mapState } from 'vuex'
+import { findTable } from '@/common/transport/TransportOpenTab'
+
+const log = rawLog.scope('TabWithTable')
+
 export default Vue.extend({
   props: ['tab'],
   computed: {
     ...mapState(['tables', 'tablesInitialLoaded']),
     table() {
-      console.log("table changed")
-      return this.tab.findTable(this.tables)
+      return findTable(this.tab, this.tables)
     },
+  },
+  watch: {
+    table() {
+      log.debug("table changed!", this.table)
+    }
   }
 })
 </script>

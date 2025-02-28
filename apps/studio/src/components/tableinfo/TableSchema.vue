@@ -118,15 +118,13 @@
 </style>
 
 <script lang="ts">
-import { TabulatorFull, Tabulator } from 'tabulator-tables'
-type CellComponent = Tabulator.CellComponent
-type RowComponent = Tabulator.RowComponent
+import { TabulatorFull, CellComponent, RowComponent } from 'tabulator-tables'
 import DataMutators from '../../mixins/data_mutators'
 import { format } from 'sql-formatter'
 import _ from 'lodash'
 import Vue from 'vue'
 // import globals from '../../common/globals'
-import { vueEditor, vueFormatter, trashButton, TabulatorStateWatchers } from '@shared/lib/tabulator/helpers'
+import { vueEditor, vueFormatter, trashButton, TabulatorStateWatchers, moveRowHandle } from '@shared/lib/tabulator/helpers'
 import CheckboxFormatterVue from '@shared/components/tabulator/CheckboxFormatter.vue'
 import CheckboxEditorVue from '@shared/components/tabulator/CheckboxEditor.vue'
 import NullableInputEditorVue from '@shared/components/tabulator/NullableInputEditor.vue'
@@ -136,11 +134,16 @@ import { AppEvent } from '@/common/AppEvent'
 import StatusBar from '../common/StatusBar.vue'
 import { AlterTableSpec, FormatterDialect } from '@shared/lib/dialects/models'
 import ErrorAlert from '../common/ErrorAlert.vue'
-import { escapeHtml } from '@/mixins/data_mutators';
+import rawLog from '@bksLogger'
+import { escapeHtml } from '@shared/lib/tabulator'
+import { ExtendedTableColumn } from '@/lib/db/models'
 
+const log = rawLog.scope('table-schema')
 
 const FakeCell = {
-  getRow: () => ({}),
+  getRow: () => ({
+    getData: () => ({})
+  }),
   getField: () => 'fake',
   getValue: () => 'fake'
 
@@ -152,7 +155,7 @@ export default Vue.extend({
     ErrorAlert
   },
   mixins: [DataMutators],
-  props: ["table", "connection", "tabID", "active", "primaryKeys", "tabState"],
+  props: ["table", "tabID", "active", "primaryKeys", "tabState"],
   data() {
     return {
       tabulator: null,
@@ -162,17 +165,23 @@ export default Vue.extend({
       newRows: [],
       removedRows: [],
       error: null,
+      reorderedRows: Array.from(new Set()),
+      initialColumns: []
     }
   },
   watch: {
     hasEdits() {
       this.tabState.dirty = this.hasEdits
     },
+    primaryKeys() {
+      log.info('tabulator primary keys changed', this.primaryKeys)
+      this.initializeTabulator()
+    },
     ...TabulatorStateWatchers
   },
   computed: {
     ...mapGetters(['dialect', 'dialectData']),
-    ...mapState(['database']),
+    ...mapState(['database', 'connection']),
     hotkeys() {
       if (!this.active) return {}
       const result = {}
@@ -195,7 +204,7 @@ export default Vue.extend({
       return getDialectData(this.dialect).disabledFeatures
     },
     editCount() {
-      return this.editedCells.length + this.newRows.length + this.removedRows.length
+      return this.editedCells.length + this.newRows.length + this.removedRows.length + this.reorderedRows.length
     },
     columnTypes() {
       return getDialectData(this.dialect).columnTypes.map((c) => c.pretty)
@@ -204,15 +213,18 @@ export default Vue.extend({
       return this.editCount > 0
     },
     tableColumns() {
+      const canMoveRows = !this.dialectData.disabledFeatures?.alter?.reorderColumn
       const autocompleteOptions = {
         freetext: true,
         allowEmpty: false,
         values: this.columnTypes,
         defaultValue: 'varchar(255)',
-        showListOnEmpty: true
+        listOnEmpty: true,
+        autocomplete: true,
       }
 
       const result = [
+        (canMoveRows) ? moveRowHandle() : null,
         {
           title: 'Name',
           field: 'columnName',
@@ -221,6 +233,7 @@ export default Vue.extend({
           tooltip: this.columnNameCellTooltip.bind(this),
           formatter: this.cellFormatter,
           editable: this.isCellEditable.bind(this, 'renameColumn'),
+          cssClass: this.customColumnCssClass('renameColumn'),
           cellClick: this.columnNameCellClick.bind(this),
           frozen: true,
           minWidth: 100,
@@ -228,13 +241,14 @@ export default Vue.extend({
         {
           title: 'Type',
           field: 'dataType',
-          editor: 'autocomplete',
+          editor: 'list',
           editorParams: autocompleteOptions,
           cellEdited: this.cellEdited,
           editable: this.isCellEditable.bind(this, 'alterColumn'),
+          cssClass: this.customColumnCssClass('alterColumn'),
           minWidth: 90,
         },
-        {
+        (this.disabledFeatures?.nullable) ? null : {
           title: 'Nullable',
           field: 'nullable',
           headerTooltip: "Allow this column to contain a null value",
@@ -246,9 +260,9 @@ export default Vue.extend({
           cellEdited: this.cellEdited,
           editable: this.isCellEditable.bind(this, 'alterColumn'),
           width: 70,
-          cssClass: "no-padding no-edit-highlight",
+          cssClass: this.customColumnCssClass('alterColumn') + ' no-padding no-edit-highlight',
         },
-        {
+        (this.disabledFeatures?.defaultValue) ? null : {
           title: 'Default Value',
           field: 'defaultValue',
           editor: vueEditor(NullableInputEditorVue),
@@ -256,6 +270,7 @@ export default Vue.extend({
           cellEdited: this.cellEdited,
           formatter: this.cellFormatter,
           editable: this.isCellEditable.bind(this, 'alterColumn'),
+          cssClass: this.customColumnCssClass('alterColumn'),
           minWidth: 90,
         },
         (this.disabledFeatures?.informationSchema?.extra ? null : {
@@ -264,6 +279,7 @@ export default Vue.extend({
           tooltip: true,
           headerTooltip: 'eg AUTO_INCREMENT',
           editable: this.isCellEditable.bind(this, 'alterColumn'),
+          cssClass: this.customColumnCssClass('alterColumn'),
           formatter: this.cellFormatter,
           cellEdited: this.cellEdited,
           editor: vueEditor(NullableInputEditorVue),
@@ -275,12 +291,13 @@ export default Vue.extend({
           tooltip: true,
           headerTooltip: "Leave a friendly comment for other database users about this column",
           editable: this.isCellEditable.bind(this, 'alterColumn'),
+          cssClass: this.customColumnCssClass('alterColumn'),
           formatter: this.cellFormatter,
           cellEdited: this.cellEdited,
           editor: vueEditor(NullableInputEditorVue),
           minWidth: 90,
         }),
-        {
+        (this.disabledFeatures?.primary ? null : {
           title: 'Primary',
           field: 'primary',
           tooltip: false,
@@ -290,8 +307,8 @@ export default Vue.extend({
             editable: false
           },
           width: 70,
-          cssClass: "read-only never-editable",
-        },
+          cssClass: 'read-only never-editable',
+        }),
         this.editable ? trashButton(this.removeRow) : null
       ].filter((c) => !!c)
       return result.map((col) => {
@@ -314,20 +331,33 @@ export default Vue.extend({
     },
   },
   methods: {
+    customColumnCssClass(feature: string) {
+      return this.isEditable(feature) ? 'editable' : 'read-only'
+    },
+    isEditable(feature: string): boolean {
+      return this.editable && !this.disabledFeatures?.alter?.[feature]
+    },
     isCellEditable(feature: string, cell: CellComponent): boolean {
       // views and materialized views are not editable
 
       if (!this.editable) return false
       if (this.removedRows.includes(cell.getRow())) return false
+      const row = cell.getRow()
+      const columnName = row.getData()['columnName']
+      const column: ExtendedTableColumn | undefined = this.table.columns.find((c) => c.columnName === columnName)
 
-      const isDisabled = this.disabledFeatures?.alter?.[feature]
+      if (feature === 'alterColumn' && column?.generated)  {
+        return false
+      }
+
       const isNewRow = this.newRows.includes(cell.getRow())
-      const result = (isNewRow || !isDisabled)
-      return result
+
+      return isNewRow || this.isEditable(feature)
     },
     async refreshColumns() {
       if(this.hasEdits) {
-        if (!window.confirm("Are you sure? You will lose unsaved changes")) {
+        const confirmed = await this.$confirm("Are you sure? You will lose unsaved changes")
+        if (!confirmed) {
           return
         }
       }
@@ -355,6 +385,10 @@ export default Vue.extend({
       })
 
       const drops = this.removedRows.map((row) => row.getData()['columnName'])
+      
+      const reorder = (this.reorderedRows.length > 0) 
+        ? { oldOrder: this.initialColumns.slice(0), newOrder: this.tabulator.getData() }
+        : null
 
       return {
         table: this.table.name,
@@ -362,7 +396,8 @@ export default Vue.extend({
         database: this.database,
         alterations,
         adds,
-        drops
+        drops,
+        reorder
       }
     },
     // submission methods
@@ -370,7 +405,7 @@ export default Vue.extend({
       try {
         this.error = null
         const changes = this.collectChanges()
-        await this.connection.alterTable(changes)
+        await this.connection.alterTable(changes);
 
         this.clearChanges()
         await this.$store.dispatch('updateTableColumns', this.table)
@@ -387,7 +422,7 @@ export default Vue.extend({
       try {
         this.error = null
         const changes = this.collectChanges()
-        const sql = await this.connection.alterTableSql(changes)
+        const sql = await this.connection.alterTableSql(changes);
         const formatted = format(sql, { language: FormatterDialect(this.dialect)})
         this.$root.$emit(AppEvent.newTab, formatted)
       } catch (ex) {
@@ -401,11 +436,15 @@ export default Vue.extend({
 
       this.newRows.forEach((r) => r.delete())
       this.clearChanges()
+
+      this.error = null;
+      this.$emit('refresh')
     },
     clearChanges() {
       this.editedCells = []
       this.newRows = []
       this.removedRows = []
+      this.reorderedRows = []
     },
     // table edit callbacks
     async addRow(): Promise<void> {
@@ -414,7 +453,9 @@ export default Vue.extend({
       }
       const data = this.tabulator.getData()
       const name = `column_${data.length + 1}`
-      const row: RowComponent = await this.tabulator.addRow({columnName: name, dataType: 'varchar(255)', nullable: true})
+      const { defaultColumnType } = getDialectData(this.dialect)
+      const defaultType = defaultColumnType || 'VARCHAR(255)'
+      const row: RowComponent = await this.tabulator.addRow({columnName: name, dataType: defaultType, nullable: true})
       this.newRows.push(row)
       // TODO (fix): calling edit() on the column name cell isn't working here.
       // ideally we could drop users into the first cell to make editing easier
@@ -422,6 +463,11 @@ export default Vue.extend({
     },
     removeRow(_e, cell: CellComponent): void {
       const row = cell.getRow()
+      const s = new Set(this.reorderedRows)
+
+      s.delete(row)
+      this.reorderedRows = Array.from(s)
+
       if (this.newRows.includes(row)) {
         this.newRows = _.without(this.newRows, row)
         row.delete()
@@ -431,7 +477,7 @@ export default Vue.extend({
         this.removedRows = _.without(this.removedRows, row)
       } else {
         if (this.disabledFeatures?.alter?.dropColumn) {
-          this.$noty.info(`Adding columns is not supported by ${this.dialect}`)
+          this.$noty.info(`Removing columns is not supported by ${this.dialect}`)
           return
         }
         this.removedRows.push(row)
@@ -441,6 +487,12 @@ export default Vue.extend({
         })
         this.editedCells = _.without(this.editedCells, ...undoEdits)
       }
+    },
+    movedRows (row) {
+      const s = new Set(this.reorderedRows)
+      s.add(row)
+
+      this.reorderedRows = Array.from(s)
     },
     cellEdited(cell: CellComponent) {
       const rowIncluded = [...this.newRows, ...this.removedRows].includes(cell.getRow())
@@ -456,11 +508,16 @@ export default Vue.extend({
       }
     },
     initializeTabulator() {
+      log.info('initializing tabulator, (editable, columns)', this.editable, this.tableColumns)
+      const canMoveRows = !this.dialectData.disabledFeatures?.alter?.reorderColumn
+
+      this.initialColumns = this.tableData.slice(0)
       if (this.tabulator) this.tabulator.destroy()
       // TODO: a loader would be so cool for tabulator for those gnarly column count tables that people might create...
       this.tabulator = new TabulatorFull(this.$refs.tableSchema, {
         columns: this.tableColumns,
         layout: 'fitColumns',
+        movableRows: canMoveRows,
         columnDefaults: {
           title: '',
           tooltip: true,
@@ -470,6 +527,8 @@ export default Vue.extend({
         data: this.tableData,
         placeholder: "No Columns",
       })
+
+      this.tabulator.on('rowMoved', (row) => this.movedRows(row))
     },
     columnNameCellClick(_e: any, cell: CellComponent) {
       if (!this.editable || this.disabledFeatures?.alter?.renameColumn) {

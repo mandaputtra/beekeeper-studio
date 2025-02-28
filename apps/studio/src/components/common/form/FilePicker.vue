@@ -1,28 +1,49 @@
 <template>
   <div
     class="input-group"
-    @click.prevent.stop="openFilePickerDialog"
   >
     <input
+      :id="inputId"
       type="text"
       class="form-control clickable"
       placeholder="No file selected"
       :title="value"
-      :value="value"
+      :value="inputValue"
       :disabled="disabled"
-      readonly
+      :readonly="!editable"
+      @click.prevent.stop="!editable && openFilePickerDialog()"
+      @input="$emit('input', $event.target.value)"
     >
-    <div class="input-group-append">
+    <div
+      class="input-group-append"
+      :class="{ 'not-last': hasOtherActions || showCreateButton }"
+      @click.prevent.stop="openFilePickerDialog"
+    >
       <a
-        type="buttom"
+        type="button"
         class="btn btn-flat"
         :class="{disabled}"
       >{{ buttonText }}</a>
     </div>
+    <div
+      v-if="showCreateButton"
+      class="input-group-append"
+    >
+      <a
+        type="button"
+        class="btn btn-flat"
+        @click="openFilePickerDialog({ save: true })"
+      >
+        Create
+      </a>
+    </div>
+    <slot name="actions" />
   </div>
 </template>
 
 <script>
+
+/* options and all for the native file picker can be found here https://www.electronjs.org/docs/latest/api/dialog */
 export default {
   props: {
     value: {
@@ -34,6 +55,11 @@ export default {
       default: ''
     },
     showHiddenFiles: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    multiple: {
       type: Boolean,
       required: false,
       default: false
@@ -55,10 +81,39 @@ export default {
     buttonText: {
       type: String,
       default: "Choose File"
+    },
+    inputId: {
+      type: String,
+      default: "file-picker"
+    },
+    editable: {
+      type: Boolean,
+      default: false,
+    },
+    showCreateButton: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  computed: {
+    hasOtherActions() {
+      return !!this.$slots.actions;
+    },
+    inputValue() {
+      const files = this.value
+
+      if (Array.isArray(files)) {
+        if (files.length > 1) {
+          return `${files[0]} (${files.length} files)`
+        }
+        return files[0]
+      }
+
+      return files
     }
   },
   methods: {
-    async openFilePickerDialog() {
+    async openFilePickerDialog(options = {}) {
       if(this.disabled) {
         return
       }
@@ -75,8 +130,12 @@ export default {
         dialogConfig.properties.push('showHiddenFiles')
       }
 
+      if (this.multiple) {
+        dialogConfig.properties.push('multiSelections')
+      }
+
       let files
-      if (this.save) {
+      if (options.save ?? this.save) {
         files = [ this.$native.dialog.showSaveDialogSync({
           ...dialogConfig,
           ...this.options
@@ -94,7 +153,12 @@ export default {
 
       if (files) {
         if (!Array.isArray(files)) files = [files]
-        this.$emit('input', files[0])
+
+        if (this.multiple) {
+          this.$emit('input', files)
+        } else {
+          this.$emit('input', files[0])
+        }
       }
     }
   }

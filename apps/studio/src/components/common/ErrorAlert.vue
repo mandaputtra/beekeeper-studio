@@ -41,14 +41,13 @@
   </div>
 </template>
 <script lang="ts">
-import platformInfo from '@/common/platform_info'
 import _ from 'lodash'
 import Vue from 'vue'
 export default Vue.extend({
   props: ['error', 'title', 'closable', 'helpText'],
   computed: {
     dev() {
-      return platformInfo.isDevelopment
+      return this.$config.isDevelopment
     },
     errors() {
       const result = _.isArray(this.error) ? this.error : [this.error]
@@ -69,7 +68,7 @@ export default Vue.extend({
 </script>
 
 <style lang="scss" scoped>
-  @import '@/assets/styles/app/_variables';
+  @import '../../assets/styles/app/_variables';
 
   .alert.error-alert {
     display: flex;
@@ -117,7 +116,7 @@ export default Vue.extend({
 
     a {
       font-weight: 600;
-      margin-top: $gutter-h / 2;
+      margin-top: calc($gutter-h / 2);
       padding-left: $gutter-w;
     }
     &:hover{

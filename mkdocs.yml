@@ -1,0 +1,114 @@
+site_name: Beekeeper Studio
+site_url: https://docs.beekeeperstudio.io
+site_description: Beekeeper Studio user documentation - how to install, configure, and use Beekeeper Studio
+copyright: Copyright &copy; Beekeeper Studio, Inc
+repo_url: https://github.com/beekeeper-studio/beekeeper-studio
+repo_name: beekeeper-studio
+edit_uri: edit/master/docs
+extra:
+  social:
+    - icon: fontawesome/brands/x-twitter
+      link: https://twitter.com/beekeeperdata
+      name: Beekeeper on X (Twitter)
+    - icon: fontawesome/brands/github
+      link: https://github.com/beekeeper-studio/beekeeper-studio
+      name: Beekeeper Studio on GitHub
+  generator: false
+theme:
+  logo: assets/bks.svg
+  favicon: assets/favicon.ico
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Rubik
+  features:
+    - navigation.instant
+    # - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.tracking
+    - navigation.sections
+    - navigation.footer
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+    - content.action.view
+    - content.code.copy
+    - content.tooltips
+
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+
+extra_css:
+  - stylesheets/extra.css
+extra_javascript:
+  - javascript/extra.js
+plugins:
+  - search
+  - include-markdown
+#  - social:
+#      cards_layout_options:
+#        background_color: "#2c2c2c"
+#        color: "#ffffff"
+#        font_family: Rubik
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - tables
+  - abbr
+  - attr_list
+  - md_in_html
+  - nl2br
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Introduction: index.md
+  - getting-started-guide.md
+  - purchasing-a-license.md
+  - Installation:
+    - installation/index.md
+    - installation/windows.md
+    - installation/macos-m1-intel.md
+    - installation/linux.md
+  - Databases:
+    - user_guide/connecting/supported-databases.md
+    - Connecting To A Database: user_guide/connecting/connecting.md
+    - DB Specific Guides:
+      - user_guide/connecting/sqlite.md
+      - user_guide/connecting/google-bigquery.md
+      - user_guide/connecting/oracle-database.md
+      - user_guide/connecting/amazon-rdb.md
+      - user_guide/connecting/firebird.md
+      - user_guide/connecting/duckdb.md
+      - user_guide/connecting/mongodb.md
+  - User Guide:
+    - user_guide/using-the-sql-editor.md
+    - user_guide/editing-data.md
+    - user_guide/data-export.md
+    - user_guide/modify-tables.md
+    - user_guide/entity-relationship-diagrams-erd.md
+    - user_guide/backup-restore.md
+    - user_guide/cloud-storage-team-workspaces.md
+    - user_guide/importing-data-csv-json-etc.md
+    - user_guide/query-magics.md
+  - Support:
+    - Upgrading: support/upgrading-from-the-community-edition.md
+    - support/subscription-management.md
+    - support/contact-support.md
+    - support/open-source.md
+    - support/troubleshooting.md
+    - support/data-location.md

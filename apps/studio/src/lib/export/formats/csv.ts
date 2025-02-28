@@ -1,5 +1,5 @@
+import { BasicDatabaseClient } from '@/lib/db/clients/BasicDatabaseClient'
 import Papa from 'papaparse'
-import { DBConnection } from "../../db/client"
 import { TableColumn, TableFilter, TableOrView } from "../../db/models"
 import { Export } from "../export"
 import { ExportOptions } from "../models"
@@ -24,15 +24,16 @@ export class CsvExporter extends Export {
 
   constructor(
     filePath: string,
-    connection: DBConnection,
+    connection: BasicDatabaseClient<any>,
     table: TableOrView,
     query: string,
     queryName: string,
     filters: TableFilter[] | any[],
     options: ExportOptions,
-    outputOptions: OutputOptionsCsv
+    outputOptions: OutputOptionsCsv,
+    managerNotify: boolean = true
   ) {
-    super(filePath, connection, table, query, queryName, filters, options)
+    super(filePath, connection, table, query, queryName, filters, options, managerNotify)
     this.headerConfig = {
       header: table ? true : false, // dont know columns for query
       delimiter: outputOptions.delimiter,

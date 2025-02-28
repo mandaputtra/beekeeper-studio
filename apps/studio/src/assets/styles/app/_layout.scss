@@ -17,15 +17,13 @@ a {
   }
 }
 i {
-  @extend .noselect;
+  @include noselect;
 }
 .expand {
   flex-grow: 1;
 }
 .truncate {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  @include truncate;
 }
 .sub {
   font-weight: bold;
@@ -34,9 +32,7 @@ i {
   letter-spacing: 0.05rem;
 }
 .noselect {
-        -ms-user-select: none;
-    -webkit-user-select: none;
-            user-select: none;
+  @include noselect;
 }
 .clickable,
 .cursor-pointer {
@@ -73,7 +69,7 @@ hr {
   background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=); background-repeat: repeat-y!important;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba($theme-base, 0.2);
+  background: mix($theme-base, $theme-bg, 20%);
   border-radius: 2px;
 }
 ::-webkit-scrollbar-button {
@@ -86,37 +82,17 @@ hr {
 
 // Buttons
 // ---------------------------------------
+
+.a-icon {
+  display: flex;
+  text-decoration: none !important;
+  align-items: center;
+}
 .btn {
-  display: inline-flex;
-  font-size: 12px;
-  line-height: $input-height;
-  height: $input-height;
-  font-weight: 700;
-  outline: 0;
-  border: 0;
-  padding: 0 1rem;
-  min-width: 88px;
-  box-shadow: inset 0 0 0 1px rgba(white, 0.025);
-  border-radius: $btn-border-radius;
-  transition: background 0.15s ease-in-out,
-              color 0.15s ease-in-out;
-  justify-content: center;
-  text-align: center;
-  cursor: pointer;
-  &:hover, &:focus {
-    font-weight: 700;
-    outline: 0;
-    border: 0;
-    box-shadow: none;
-  }
-  &.btn-icon {
-    display: flex;
-    align-items: center;
-    i {
-      font-size: 1rem;
-      margin-left: -3px;
-    }
-  }
+  @include btn;
+}
+x-buttons > x-button[menu].btn {
+  border-left: 1px solid rgba(black, 0.35);
 }
 .btn-primary {
   background: $theme-base;
@@ -138,11 +114,7 @@ hr {
 }
 
 .btn-flat {
-  color: $theme-base;
-  background: rgba($theme-base, 0.06);
-  &:hover, &:focus {
-    background: rgba($theme-base, 0.12);
-  }
+  @include btn-flat;
 }
 .btn-link {
   color: $theme-base;
@@ -153,8 +125,13 @@ hr {
   }
 }
 .btn-icon {
-  .material-icons {
+  .material-icons:first-child {
     margin-right: $gutter-h * 0.65;
+    margin-left: 0;
+  }
+
+  .material-icons:last-child {
+    margin-left: $gutter-h * 0.65;
   }
 }
 .btn-info {
@@ -178,14 +155,13 @@ hr {
   max-width: 250px;
 }
 .btn-small {
-  font-size: 0.85rem;
-  padding: 0 .65rem;
-  min-width: 0;
-  height: 24px;
-  line-height: 24px;
-  border-radius: $btn-border-radius-small;
-  x-label {
-    line-height: 24px;
+  @include btn-small;
+}
+x-buttons {
+  border-radius: 6px;
+  overflow: hidden;
+  > x-button.btn-small {
+    border-radius: 0;
   }
 }
 .btn-block {
@@ -206,8 +182,8 @@ hr {
   margin: 0;
   text-align: center;
   box-shadow: none;
-  @extend .noselect;
-  @extend .layout-center !optional;
+  @include noselect;
+  @include layout-center;
   transition: background 0.15s ease-in-out;
   &:hover, &:focus {
     background: rgba($theme-base, 0.1);
@@ -317,21 +293,7 @@ hr {
   }
 }
 .form-control {
-  position: relative;
-  display: flex;
-  height: $input-height;
-  padding: 0 0.75rem;
-  font-size: 0.9rem;
-  font-weight: normal;
-  line-height: $input-height;
-  color: $text;
-  background: transparent;
-  border-radius: $input-radius;
-  border: 1px solid $border-color;
-  outline: none;
-  box-shadow: none;
-  width: 100%;
-  transition: border-color 0.15s ease-in-out;
+  @include form-control;
 }
 
 label {
@@ -343,7 +305,7 @@ label {
 }
 
 input, select, textarea, .bk-form-input {
-  @extend .form-control;
+  @include form-control;
   &:focus {
     border-color: $input-highlight;
   }
@@ -374,6 +336,11 @@ input, select, textarea, .bk-form-input {
     > .btn {
       border-top-left-radius: 0;
       border-bottom-left-radius: 0;
+    }
+
+    &.not-last > .btn {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
     }
   }
 }
@@ -438,7 +405,8 @@ input[type="checkbox"] {
   display: inline-flex;
 	-webkit-appearance: none;
 	background-color: transparent;
-  box-shadow: inset 0 0 0 2px rgba($theme-base, 0.2);
+  outline: 2px solid rgba($theme-base, 0.2);
+  outline-offset: -2px;
   height: $checkbox-size;
   line-height: $checkbox-size;
   width: $checkbox-size;
@@ -455,6 +423,7 @@ input[type="checkbox"] {
     background: $theme-base;
     color: $theme-bg;
     box-shadow: none;
+    outline: none;
   }
   &:checked:after {
     font-family: 'Material Icons';
@@ -557,6 +526,10 @@ input[type=file] {
   }
 }
 
+.text-center {
+  text-align: center;
+}
+
 // Nav
 // ----------------------------------
 .nav {
@@ -613,6 +586,12 @@ input[type=file] {
   &.query {
     color: $brand-pink;
   }
+  &.database {
+    color: $brand-purple;
+  }
+  &.connection {
+    color: $brand-secondary;
+  }
   &.settings {
     color: $text-lighter;
   }
@@ -631,15 +610,16 @@ input[type=file] {
   &.gutter-horizontal,
   &.gutter-vertical {
     display: flex;
-    background-color: tranparent;
-    z-index: 10;
+    background-color: transparent;
+    z-index: 20;
   }
   &.gutter-horizontal {
     width: 0!important;
     cursor: ew-resize;
     &:after {
       height: 100%;
-      width: 5px;
+      width: var(--gutter-size, 10px);
+      transform: translateX(-50%);
       background-color: inherit;
     }
   }
@@ -682,11 +662,11 @@ input[type=file] {
 }
 .card {
   background: lighten($theme-bg, 6%);
-  @extend .card-shadow;
+  @include card-shadow;
 }
 .card-flat {
-  background: rgba($theme-base, 0.04);
-  box-shadow: none;
+    background: $theme-bg;
+    box-shadow: none;
 }
 .card-title {
   color: $text-dark;
@@ -741,6 +721,26 @@ input[type=file] {
 
 // Alerts
 // --------------------------
+
+.inline-alert {
+  a {
+    color: inherit;
+    text-decoration: underline;
+    &:hover {
+      color: $link-color;
+    }
+
+    i.close {
+      font-size: inherit;
+      vertical-align: middle;
+      color: $text;
+      &:hover {
+        color: $text-dark;
+      }
+    }
+  }
+}
+
 .alert {
   display: flex;
   border-radius: 6px;

@@ -1,13 +1,4 @@
 // Copyright (c) 2015 The SQLECTRON Team
-
-import mysql from './mysql';
-import postgresql from './postgresql';
-import sqlserver from './sqlserver';
-import sqlite from './sqlite';
-import cassandra from './cassandra';
-import bigquery from './bigquery.js';
-
-
 export function findClient(key: string): Client | undefined {
   const client = CLIENTS.find((cli) => cli.key === key);
   if(!client) return undefined;
@@ -16,6 +7,9 @@ export function findClient(key: string): Client | undefined {
     ...client,
     get supportsSocketPath(): boolean {
       return this.supports('server:socketPath');
+    },
+    get supportsSocketPathWithCustomPort(): boolean {
+      return this.supports('server:socketPathWithCustomPort')
     },
     supports(feature: string): boolean {
       return !client.disabledFeatures?.includes(feature);
@@ -46,7 +40,8 @@ export const CLIENTS: ClientConfig[] = [
     defaultPort: 26257,
     disabledFeatures: [
       'server:domain',
-      'server:socketPath'
+      'server:socketPath',
+      'server:socketPathWithCustomPort',
     ],
   },
   {
@@ -56,6 +51,7 @@ export const CLIENTS: ClientConfig[] = [
     disabledFeatures: [
       'server:schema',
       'server:domain',
+      'server:socketPathWithCustomPort',
     ],
   },
   {
@@ -65,6 +61,7 @@ export const CLIENTS: ClientConfig[] = [
     disabledFeatures: [
       'server:schema',
       'server:domain',
+      'server:socketPathWithCustomPort',
     ],
   },
   {
@@ -83,7 +80,8 @@ export const CLIENTS: ClientConfig[] = [
     defaultPort: 5432,
     disabledFeatures: [
       'server:domain',
-      'server:socketPath'
+      'server:socketPath',
+      'server:socketPathWithCustomPort',
     ],
   },
   {
@@ -91,7 +89,8 @@ export const CLIENTS: ClientConfig[] = [
     name: 'Microsoft SQL Server',
     defaultPort: 1433,
     disabledFeatures: [
-      'server:socketPath'
+      'server:socketPath',
+      'server:socketPathWithCustomPort',
     ],
   },
   {
@@ -103,6 +102,7 @@ export const CLIENTS: ClientConfig[] = [
       'server:host',
       'server:port',
       'server:socketPath',
+      'server:socketPathWithCustomPort',
       'server:user',
       'server:password',
       'server:schema',
@@ -123,7 +123,17 @@ export const CLIENTS: ClientConfig[] = [
       'server:domain',
       'scriptCreateTable',
       'cancelQuery',
+      'server:socketPathWithCustomPort',
     ],
+  },
+  {
+    key: 'oracle',
+    name: 'Oracle',
+    defaultPort: 1521,
+    disabledFeatures: [
+      'server:socketPath',
+      'server:socketPathWithCustomPort',
+    ]
   },
   {
     key: 'bigquery',
@@ -132,6 +142,7 @@ export const CLIENTS: ClientConfig[] = [
     disabledFeatures: [
       'server:ssl',
       'server:socketPath',
+      'server:socketPathWithCustomPort',
       'server:user',
       'server:password',
       'server:schema',
@@ -140,17 +151,73 @@ export const CLIENTS: ClientConfig[] = [
       'scriptCreateTable',
     ],
   },
+  {
+    key: 'firebird',
+    name: 'Firebird',
+    defaultPort: 3050,
+    disabledFeatures: [
+      'server:schema',
+      'server:socketPath',
+      'server:socketPathWithCustomPort',
+    ],
+  },
+  {
+    key: 'tidb',
+    name: 'TiDB',
+    defaultPort: 4000,
+    disabledFeatures: [
+      'server:schema',
+      'server:domain',
+      'server:socketPathWithCustomPort',
+    ],
+  },
+  {
+    key: 'libsql',
+    name: 'LibSQL',
+    defaultPort: 8080,
+    defaultDatabase: ':memory:',
+    disabledFeatures: [
+      'server:ssl',
+      'server:host',
+      'server:port',
+      'server:socketPath',
+      'server:socketPathWithCustomPort',
+      'server:user',
+      'server:password',
+      'server:schema',
+      'server:domain',
+      'server:ssh',
+      'scriptCreateTable',
+      'cancelQuery',
+    ],
+  },
+  {
+    key: 'duckdb',
+    name: 'DuckDB',
+    defaultDatabase: ':memory:',
+    disabledFeatures: [
+      'server:ssl',
+      'server:host',
+      'server:port',
+      'server:socketPath',
+      'server:user',
+      'server:password',
+      'server:schema',
+      'server:domain',
+      'server:ssh',
+      'cancelQuery', // TODO how to do this?
+    ],
+  },
+  {
+    key: 'clickhouse',
+    name: 'ClickHouse',
+    defaultPort: 8123,
+    disabledFeatures: [
+      'server:socketPath',
+    ],
+  },
+  {
+    key: 'mongodb',
+    name: 'MongoDB'
+  }
 ];
-
-
-export default {
-  mysql,
-  postgresql,
-  sqlserver,
-  sqlite,
-  cassandra,
-  redshift: postgresql,
-  mariadb: mysql,
-  cockroachdb: postgresql,
-  bigquery,
-};

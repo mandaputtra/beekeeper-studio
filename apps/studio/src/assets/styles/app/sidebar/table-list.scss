@@ -50,15 +50,14 @@
     padding-top: $gutter-w;
     padding-bottom: $gutter-w;
   }
+  &.pinned .list-item-btn .actions {
+    margin-right: 0.3rem;
+  }
 }
 
 .hidden-indicator {
   position: relative;
   z-index: 1;
-
-  &:hover .hi-tooltip {
-    visibility: visible;
-  }
 
   > .badge {
     display: flex;
@@ -70,45 +69,6 @@
       margin-right: 0.2rem;
     }
   }
-
-  .hi-tooltip {
-    $gap: 0.5rem;
-
-    visibility: hidden;
-    position: absolute;
-    display: block !important;
-    top: calc(100% + #{$gap});
-    left: -5rem;
-    width: 14rem;
-    padding: $gutter-h $gutter-w !important;
-    border-radius: 0.5rem;
-    background-color: #4f4f4f;
-
-    text-transform: none;
-    font-weight: normal;
-    font-size: 0.9rem;
-
-    // acting as a "bridge" so the tooltip stays visible when the cursor is
-    // in between the text and the tooltip
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: -$gap;
-      width: 100%;
-      height: $gap;
-    }
-
-    span, a {
-      display: inline;
-      color: #eee;
-      line-height: 1.35rem;
-    }
-
-    a {
-      border-bottom: 1px solid #dadada;
-    }
-  }
 }
 
 .list-item {
@@ -118,5 +78,18 @@
         align-items: center;
         height: auto;
       }
+  }
+}
+
+.table-list-component .virtual-table-list .sub-item {
+  .title {
+    flex-grow: 0;
+    flex-shrink: 0;
+  }
+  .badge {
+    min-width: auto;
+    flex-grow: 1;
+    max-width: none;
+    text-align: right;
   }
 }

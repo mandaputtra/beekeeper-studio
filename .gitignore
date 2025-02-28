@@ -1,8 +1,12 @@
+.turbo/
 .idea/
+.cache/
 .vscode/
 ./data/
+.local
 node_modules/
 dist/
+site/
 tmp/
 temp/
 test.db
@@ -15,3 +19,9 @@ yarn-error.log
 .package-lock.json
 .secrets
 .env
+.instant/
+cli.zip
+apps/studio/test-results
+*.db
+*.log
+*.orig

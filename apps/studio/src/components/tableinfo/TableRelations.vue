@@ -100,10 +100,7 @@
 </template>
 <script lang="ts">
 import Vue from 'vue'
-import { Tabulator, TabulatorFull } from 'tabulator-tables'
-type CellComponent = Tabulator.CellComponent
-type RowComponent = Tabulator.RowComponent
-type ColumnDefinition = Tabulator.ColumnDefinition
+import { Tabulator, TabulatorFull, CellComponent, RowComponent, ColumnDefinition } from 'tabulator-tables'
 
 import StatusBar from '../common/StatusBar.vue'
 import { TabulatorStateWatchers, trashButton, vueEditor } from '@shared/lib/tabulator/helpers'
@@ -114,13 +111,13 @@ import { TableColumn, TableOrView } from '@/lib/db/models'
 import _ from 'lodash'
 import { format } from 'sql-formatter'
 import { AppEvent } from '@/common/AppEvent'
-import rawLog from 'electron-log'
+import rawLog from '@bksLogger'
 import ErrorAlert from '../common/ErrorAlert.vue'
 const log = rawLog.scope('TableRelations');
-import { escapeHtml } from '@/mixins/data_mutators';
+import { escapeHtml } from '@shared/lib/tabulator'
 
 export default Vue.extend({
-  props: ["table", "connection", "tabId", "active", "properties", 'tabState'],
+  props: ["table", "tabId", "active", "properties", 'tabState'],
   components: {
     StatusBar,
     ErrorAlert
@@ -135,10 +132,10 @@ export default Vue.extend({
     }
   },
   computed: {
-    ...mapState(['tables']),
+    ...mapState(['tables', 'connection']),
     ...mapGetters(['schemas', 'dialect', 'schemaTables', 'dialectData']),
     enabled() {
-      return !this.dialectData.disabledFeatures?.alter?.everything
+      return !this.dialectData.disabledFeatures?.alter?.everything && !this.dialectData?.disabledFeatures?.relations;
     },
     hotkeys() {
       if (!this.active) return {}
@@ -197,7 +194,8 @@ export default Vue.extend({
           editable,
           editor: 'list',
           editorParams: {
-            values: this.table.columns.map((c) => escapeHtml(c.columnName))
+            // @ts-expect-error Incorrectly typed
+            valuesLookup: () => this.table.columns.map((c) => escapeHtml(c.columnName))
           }
         },
         ...( showSchema ? [{
@@ -206,7 +204,8 @@ export default Vue.extend({
           editable,
           editor: 'list' as any,
           editorParams: {
-            values: this.schemas.map((s) => escapeHtml(s))
+            // @ts-expect-error Incorrectly typed
+            valuesLookup: () => this.schemas.map((s) => escapeHtml(s))
           },
           cellEdited: (cell) => cell.getRow().getCell('toTable')?.setValue(null)
         }] : []),
@@ -220,13 +219,12 @@ export default Vue.extend({
             valuesLookup: this.getTables
           },
           cellEdited: (cell) => cell.getRow().getCell('toColumn')?.setValue(null)
-
         },
         {
           field: 'toColumn',
           title: "FK Column",
           editable,
-          editor: 'select',
+          editor: 'list',
           editorParams: {
             // @ts-expect-error Incorrectly typed
             valuesLookup: this.getColumns
@@ -235,7 +233,7 @@ export default Vue.extend({
         {
           field: 'onUpdate',
           title: "On Update",
-          editor: 'select',
+          editor: 'list',
           editable,
           editorParams: {
             values: this.dialectData.constraintActions,
@@ -246,7 +244,7 @@ export default Vue.extend({
           field: 'onDelete',
           title: 'On Delete',
           editable,
-          editor: 'select',
+          editor: 'list',
           // @ts-expect-error Bad Type
           editorParams: {
             values: this.dialectData.constraintActions,
@@ -279,17 +277,29 @@ export default Vue.extend({
         this.schemaTables.find((st) => escapeHtml(st.schema) === schema)?.tables.map((t) => escapeHtml(t.name)) :
         this.tables.map((t) => escapeHtml(t.name))
     },
-    getColumns(cell: CellComponent): string[] {
+    findTable(schema: string | null, table: string): null | TableOrView {
+      if (!schema) {
+        return this.tables.find((t: TableOrView) => escapeHtml(t.name) === table)
+      }
+
+      return this.tables.find((t: TableOrView) =>
+        escapeHtml(t.name) === table && escapeHtml(t.schema) === schema
+      )
+    },
+    async getColumns(cell: CellComponent): Promise<string[]> {
       const data = cell.getRow().getData()
       const schema = data['toSchema']
       const table = data['toTable']
-      if (!schema) {
-        return this.tables.find((t: TableOrView) => escapeHtml(t.name) === table)?.columns.map((c: TableColumn) => escapeHtml(c.columnName)) || []
-      } else {
-        return this.tables.find((t: TableOrView) =>
-          escapeHtml(t.name) === table && escapeHtml(t.schema) === schema
-        )?.columns.map((c: TableColumn) => escapeHtml(c.columnName)) || []
+      let tableData = this.findTable(schema, table)
+
+      if (tableData?.columns == null) {
+        await this.$store.dispatch('updateTableColumns', tableData)
+        tableData = this.findTable(schema, table)
       }
+
+      const result = await tableData.columns.map((c: TableColumn) => escapeHtml(c.columnName)) || []
+      console.log("getcolumns", result)
+      return result
     },
     getPayload(): RelationAlterations {
       const additions: CreateRelationSpec[] = this.newRows.map((row: RowComponent) => {
@@ -340,7 +350,7 @@ export default Vue.extend({
         this.loading = true
         this.error = null
         const payload = this.getPayload()
-        await this.connection.alterRelation(payload)
+        await this.connection.alterRelation(payload);
         this.$noty.success("Relations Updated")
         this.$emit('actionCompleted')
         this.newRows = []
@@ -354,9 +364,9 @@ export default Vue.extend({
       }
 
     },
-    submitSql() {
+    async submitSql() {
       const payload = this.getPayload()
-      const sql = this.connection.alterRelationSql(payload)
+      const sql = await this.connection.alterRelationSql(payload);
       const formatted = format(sql, { language: FormatterDialect(this.dialect)})
       this.$root.$emit(AppEvent.newTab, formatted)
     },

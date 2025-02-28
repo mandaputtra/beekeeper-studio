@@ -9,10 +9,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: example
       POSTGRES_DB: integration_test
-    volumes:
-      - psql:/var/lib/postgresql/data
     ports:
-      - 6666:5432
+      - 5432
   ssh:
     build:
       context: ./
@@ -27,4 +25,4 @@ services:
       - USER_NAME=beekeeper #optional
       - SUDO_ACCESS=true
     ports:
-      - 7777:2222
+      - 2222

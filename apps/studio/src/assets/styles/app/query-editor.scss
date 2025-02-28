@@ -35,6 +35,34 @@
     }
   }
 
+  .not-supported {
+    position: absolute;
+    z-index: 10;
+    inset: 0;
+    top: var(--header-title-height);
+    backdrop-filter: blur(6px);
+    background-color: rgba($theme-bg, 0.5);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+
+    .title {
+      display: flex;
+      flex-direction: row;
+      font-weight: 700;
+      align-items: center;
+      i.material-icons {
+        margin-right: 0.5rem;
+      }
+    }
+
+    .body {
+      line-height: 1.25;
+    }
+  }
+
 
   .toolbar {
     display: flex;
@@ -50,16 +78,6 @@
       display: flex;
       align-items: center;
       padding: 0;
-
-      .keymap-label {
-        font-size: 95%;
-        padding-left: $gutter-w * 2.6;
-        cursor: pointer;
-        .material-icons {
-          position: absolute;
-          left: $gutter-h;
-        }
-      }
     }
     .btn-fab {
       i {
@@ -112,8 +130,31 @@
 
   }
 
-  // Modal
-  // ------------------------------
+  .CodeMirror {
+    padding-bottom: 0.25rem;
+  }
+
+  .CodeMirror-linenumbers {
+    width: 1.57rem;
+    margin-right: 0.67rem;
+  }
+
+  .statusbar {
+    .statusbar-right-actions {
+      flex-basis: auto;
+    }
+    .btn.btn-flat .material-icons {
+      font-size: 16px;
+    }
+  }
+
+  .dry-run-btn {
+    gap: 0.35rem;
+
+    input[type=checkbox] {
+      margin: 0;
+    }
+  }
 }
 
 // Shortcut
